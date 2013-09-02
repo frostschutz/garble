@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha512"
 	"fmt"
 	"time"
 )
@@ -21,7 +22,12 @@ func randomSeed() int64 {
 }
 
 func main() {
+	hash := sha512.New()
+	seed := []byte(fmt.Sprint(randomSeed()))
+	b := make([]byte, hash.Size())
 	for i := 0; i < 100000; i++ {
-		fmt.Println(randomSeed())
+		hash.Write(seed)
+		hash.Sum(b[:0])
+		fmt.Println(b)
 	}
 }
