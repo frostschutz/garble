@@ -11,7 +11,12 @@ import (
 	"time"
 )
 
+const (
+	BSIZE = 65536
+)
+
 var (
+	narg   = int(0)
 	phrase = ""
 )
 
@@ -33,7 +38,9 @@ func init() {
 	flag.StringVar(&phrase, "phrase", "", "the Garble phrase, by default random")
 	flag.Parse()
 
-	if flag.NArg() == 0 {
+	narg = flag.NArg()
+
+	if narg <= 0 {
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -43,10 +50,16 @@ func init() {
 	}
 }
 
+func garble(index int, f *os.File, c chan []byte) {
+	fmt.Println("garble(", index, f, c, ")")
+	<-c
+}
+
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	files := make([]*os.File, flag.NArg())
+	channels := make([]chan []byte, narg)
+	files := make([]*os.File, narg)
 
 	for i, arg := range flag.Args() {
 		f, err := os.OpenFile(arg, os.O_RDWR, 0666)
@@ -55,7 +68,8 @@ func main() {
 		}
 		defer f.Close()
 		files[i] = f
-		fmt.Println(arg, "with", phrase)
+		channels[i] = make(chan []byte, 8)
+		go garble(i, files[i], channels[i])
 	}
 
 	hash := sha512.New()
