@@ -46,10 +46,16 @@ func init() {
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	args := flag.Args()
+	files := make([]*os.File, flag.NArg())
 
-	for i := range args {
-		fmt.Println(args[i], "with", phrase)
+	for i, arg := range flag.Args() {
+		f, err := os.OpenFile(arg, os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+		defer f.Close()
+		files[i] = f
+		fmt.Println(arg, "with", phrase)
 	}
 
 	hash := sha512.New()
