@@ -5,19 +5,23 @@ import (
 	"crypto/sha512"
 	"flag"
 	"fmt"
-	//	"math/rand"
+	"math/rand"
 	"os"
 	"runtime"
 	"time"
 )
 
 const (
-	BSIZE = 65536
+	BSIZE    = 65536
+	BSIZEMOD = BSIZE % 7
+	BSIZE7   = BSIZE - BSIZEMOD
+	SRC      = 8
 )
 
 var (
-	narg   = int(0)
-	phrase = ""
+	narg    = int(0)
+	phrase  = ""
+	sources [8]rand.Source
 )
 
 // randomSeed produces a int64 seed based on crypto/rand and time.
@@ -32,6 +36,30 @@ func randomSeed() int64 {
 	}
 
 	return seed
+}
+
+func randomBytes(src rand.Source) []byte {
+	buf := make([]byte, BSIZE)
+
+	for i := 0; i < BSIZE7; i += 7 {
+		r := src.Int63()
+		buf[i] = byte(r)
+		buf[i+1] = byte(r << 8)
+		buf[i+2] = byte(r << 16)
+		buf[i+3] = byte(r << 24)
+		buf[i+4] = byte(r << 32)
+		buf[i+5] = byte(r << 40)
+		buf[i+6] = byte(r << 48)
+	}
+
+	r := src.Int63()
+
+	for i := BSIZE - BSIZE7; i < BSIZE; i++ {
+		buf[i] = byte(r)
+		r = r << 8
+	}
+
+	return buf
 }
 
 func init() {
