@@ -41,22 +41,28 @@ func randomSeed() int64 {
 func randomBytes(src rand.Source) []byte {
 	buf := make([]byte, BSIZE)
 
-	for i := 0; i < BSIZE7; i += 7 {
+	for i := 0; i < BSIZE7; i++ {
 		r := src.Int63()
 		buf[i] = byte(r)
-		buf[i+1] = byte(r << 8)
-		buf[i+2] = byte(r << 16)
-		buf[i+3] = byte(r << 24)
-		buf[i+4] = byte(r << 32)
-		buf[i+5] = byte(r << 40)
-		buf[i+6] = byte(r << 48)
+		i++
+		buf[i] = byte(r >> 8)
+		i++
+		buf[i] = byte(r >> 16)
+		i++
+		buf[i] = byte(r >> 24)
+		i++
+		buf[i] = byte(r >> 32)
+		i++
+		buf[i] = byte(r >> 40)
+		i++
+		buf[i] = byte(r >> 48)
 	}
 
 	r := src.Int63()
 
-	for i := BSIZE - BSIZE7; i < BSIZE; i++ {
+	for i := BSIZE - BSIZEMOD; i < BSIZE; i++ {
 		buf[i] = byte(r)
-		r = r << 8
+		r >>= 8
 	}
 
 	return buf
@@ -107,5 +113,11 @@ func main() {
 		hash.Write(seed)
 		hash.Sum(b[:0])
 		fmt.Println(b)
+	}
+
+	src := rand.NewSource(int64(b[0]) + int64(b[1])<<8)
+
+	for i := 0; i < 2; i++ {
+		os.Stdout.Write(randomBytes(src))
 	}
 }
