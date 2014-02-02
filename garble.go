@@ -38,9 +38,7 @@ func randomSeed() int64 {
 	return seed
 }
 
-func randomBytes(src rand.Source) []byte {
-	buf := make([]byte, BSIZE)
-
+func randomBytes(src rand.Source, buf []byte) {
 	for i := 0; i < BSIZE7; i++ {
 		r := src.Int63()
 		buf[i] = byte(r)
@@ -64,8 +62,6 @@ func randomBytes(src rand.Source) []byte {
 		buf[i] = byte(r)
 		r >>= 8
 	}
-
-	return buf
 }
 
 func init() {
@@ -85,7 +81,7 @@ func init() {
 }
 
 func garble(index int, f *os.File, c chan []byte) {
-	fmt.Println("garble(", index, f, c, ")")
+	// fmt.Println("garble(", index, f, c, ")")
 	<-c
 }
 
@@ -112,12 +108,14 @@ func main() {
 	for i := 0; i < 2; i++ {
 		hash.Write(seed)
 		hash.Sum(b[:0])
-		fmt.Println(b)
+		// fmt.Println(b)
 	}
 
 	src := rand.NewSource(int64(b[0]) + int64(b[1])<<8)
 
-	for i := 0; i < 2; i++ {
-		os.Stdout.Write(randomBytes(src))
+	buf := make([]byte, BSIZE)
+	for {
+		randomBytes(src, buf)
+		os.Stdout.Write(buf)
 	}
 }
