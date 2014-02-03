@@ -39,30 +39,28 @@ func randomSeed() int64 {
 }
 
 func randomBytes(src rand.Source, buf []byte) {
-	r := src.Int63()
-
-	switch { // Go seems to eliminate impossible cases
+	switch r := src.Int63(); { // Go seems to eliminate impossible cases
 	case BSIZEMOD == 6:
-		buf[BSIZE-6] = byte(r)
+		buf[BSIZE-6] = byte(r >> 48)
 		fallthrough
 	case BSIZEMOD == 5:
-		buf[BSIZE-5] = byte(r >> 8)
+		buf[BSIZE-5] = byte(r >> 32)
 		fallthrough
 	case BSIZEMOD == 4:
-		buf[BSIZE-4] = byte(r >> 16)
+		buf[BSIZE-4] = byte(r >> 24)
 		fallthrough
 	case BSIZEMOD == 3:
-		buf[BSIZE-3] = byte(r >> 24)
+		buf[BSIZE-3] = byte(r >> 16)
 		fallthrough
 	case BSIZEMOD == 2:
-		buf[BSIZE-2] = byte(r >> 32)
+		buf[BSIZE-2] = byte(r >> 8)
 		fallthrough
 	case BSIZEMOD == 1:
-		buf[BSIZE-1] = byte(r >> 40)
+		buf[BSIZE-1] = byte(r)
 	}
 
 	for i := 0; i < BSIZE7; i += 7 {
-		r = src.Int63()
+		r := src.Int63()
 		buf[i] = byte(r)
 		buf[i+1] = byte(r >> 8)
 		buf[i+2] = byte(r >> 16)
