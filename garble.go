@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	cryptorand "crypto/rand"
 	"crypto/sha512"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"math/rand"
@@ -84,6 +86,11 @@ func randomBytes(src rand.Source, out chan<- []byte) {
 	}
 }
 
+func garble(index int, f *os.File, c chan []byte) {
+	// fmt.Println("garble(", index, f, c, ")")
+	<-c
+}
+
 func init() {
 	flag.StringVar(&phrase, "phrase", "", "the Garble phrase, by default random")
 	flag.Parse()
@@ -98,11 +105,6 @@ func init() {
 	if phrase == "" {
 		phrase = fmt.Sprintf("%016x", uint64(randomSeed()))
 	}
-}
-
-func garble(index int, f *os.File, c chan []byte) {
-	// fmt.Println("garble(", index, f, c, ")")
-	<-c
 }
 
 func main() {
@@ -123,15 +125,30 @@ func main() {
 	}
 
 	hash := sha512.New()
-	seed := []byte(phrase)
-	b := make([]byte, hash.Size())
-	for i := 0; i < 2; i++ {
-		hash.Write(seed)
-		hash.Sum(b[:0])
-		// fmt.Println(b)
-	}
+	sum := make([]byte, hash.Size())
+	phrase := []byte(phrase)
 
-	src := rand.NewSource(int64(b[0]) + int64(b[1])<<8)
+	var src rand.Source
+
+	for i := 0; i < SOURCES; i++ {
+		var seed, s int64
+		var err error
+
+		hash.Write([]byte(":garble:"))
+		hash.Write(phrase)
+		hash.Sum(sum[:0])
+
+		buf := bytes.NewReader(sum)
+		s = 0
+
+		for err == nil {
+			err = binary.Read(buf, binary.LittleEndian, &s)
+			seed ^= s
+		}
+
+		src = rand.NewSource(seed)
+		fmt.Println(seed, src.Int63())
+	}
 
 	buf := make([]byte, BSIZE*SOURCES*MULTI)
 
@@ -139,7 +156,7 @@ func main() {
 		pool <- buf[i : i+BSIZE]
 	}
 
-	fmt.Println("All sent.", src.Int63())
+	fmt.Println("All sent.")
 
 	out := make(chan []byte, 1)
 
