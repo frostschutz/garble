@@ -19,13 +19,14 @@ const (
 	BSIZEMOD = BSIZE % 7
 	MULTI    = 4
 	SOURCES  = 8
+	POOL     = SOURCES * (MULTI + 1)
 )
 
 var (
-	narg    = int(0)
-	phrase  = ""
-	pool    = make(chan []byte, SOURCES*MULTI)
-	sources [SOURCES]rand.Source
+	narg   = int(0)
+	phrase = ""
+	pool   = make(chan []byte, POOL)
+	data   = make([]chan []byte, SOURCES)
 )
 
 // randomSeed produces a int64 seed based on crypto/rand and time.
@@ -87,8 +88,9 @@ func randomBytes(src rand.Source, out chan<- []byte) {
 }
 
 func garble(f *os.File, in chan []byte, out chan bool) {
-	// fmt.Println("garble(", index, f, c, ")")
-	<-out
+	for buf, ok := <-in; ok; buf, ok = <-in {
+		out <- len(buf) == BSIZE
+	}
 }
 
 func init() {
@@ -133,9 +135,9 @@ func main() {
 	}
 
 	// Allocate byte buffer pool:
-	buffer := make([]byte, BSIZE*SOURCES*MULTI)
+	buffer := make([]byte, BSIZE*POOL)
 
-	for i := 0; i < BSIZE*SOURCES*MULTI; i += BSIZE {
+	for i := 0; i < BSIZE*POOL; i += BSIZE {
 		pool <- buffer[i : i+BSIZE]
 	}
 
@@ -158,6 +160,26 @@ func main() {
 			seed ^= s
 		}
 
-		sources[i] = rand.NewSource(seed)
+		src := rand.NewSource(seed)
+		data[i] = make(chan []byte, MULTI)
+		go randomBytes(src, data[i])
+	}
+
+	// Route data channels:
+	var buf []byte
+	for {
+		for _, r := range data {
+			buf = <-r
+
+			for _, w := range writers {
+				w <- buf
+			}
+
+			for _, s := range signals {
+				<-s
+			}
+
+			pool <- buf
+		}
 	}
 }
