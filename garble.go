@@ -86,9 +86,9 @@ func randomBytes(src rand.Source, out chan<- []byte) {
 	}
 }
 
-func garble(index int, f *os.File, c chan []byte) {
+func garble(f *os.File, in chan []byte, out chan bool) {
 	// fmt.Println("garble(", index, f, c, ")")
-	<-c
+	<-out
 }
 
 func init() {
@@ -108,10 +108,17 @@ func init() {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	// Use available CPUs:
+	if runtime.GOMAXPROCS(0) == 1 &&
+		runtime.NumCPU() > 1 &&
+		os.Getenv("GOMAXPROCS") == "" {
+		runtime.GOMAXPROCS(runtime.NumCPU())
+	}
 
-	channels := make([]chan []byte, narg)
+	// Open files:
 	files := make([]*os.File, narg)
+	writers := make([]chan []byte, narg)
+	signals := make([]chan bool, narg)
 
 	for i, arg := range flag.Args() {
 		f, err := os.OpenFile(arg, os.O_RDWR, 0666)
@@ -120,22 +127,27 @@ func main() {
 		}
 		defer f.Close()
 		files[i] = f
-		channels[i] = make(chan []byte, 8)
-		go garble(i, files[i], channels[i])
+		writers[i] = make(chan []byte, MULTI)
+		signals[i] = make(chan bool, MULTI)
+		go garble(files[i], writers[i], signals[i])
 	}
 
+	// Allocate byte buffer pool:
+	buffer := make([]byte, BSIZE*SOURCES*MULTI)
+
+	for i := 0; i < BSIZE*SOURCES*MULTI; i += BSIZE {
+		pool <- buffer[i : i+BSIZE]
+	}
+
+	// Initialize random sources:
 	hash := sha512.New()
 	sum := make([]byte, hash.Size())
-	phrase := []byte(phrase)
-
-	var src rand.Source
 
 	for i := 0; i < SOURCES; i++ {
 		var seed, s int64
 		var err error
 
-		hash.Write([]byte(":garble:"))
-		hash.Write(phrase)
+		hash.Write([]byte(":garble:" + phrase))
 		hash.Sum(sum[:0])
 
 		buf := bytes.NewReader(sum)
@@ -146,23 +158,6 @@ func main() {
 			seed ^= s
 		}
 
-		src = rand.NewSource(seed)
-		fmt.Println(seed, src.Int63())
+		sources[i] = rand.NewSource(seed)
 	}
-
-	buf := make([]byte, BSIZE*SOURCES*MULTI)
-
-	for i := 0; i < BSIZE*SOURCES*MULTI; i += BSIZE {
-		pool <- buf[i : i+BSIZE]
-	}
-
-	fmt.Println("All sent.")
-
-	out := make(chan []byte, 1)
-
-	go randomBytes(src, out)
-
-	buf = <-out
-
-	os.Stdout.Write(buf)
 }
