@@ -149,6 +149,8 @@ func init() {
 	if phrase == "" {
 		phrase = fmt.Sprintf("%016x", uint64(randomSeed()))
 	}
+
+	fmt.Println("Using phrase:", phrase)
 }
 
 func main() {
