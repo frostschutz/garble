@@ -1,3 +1,5 @@
+// garble produces pseudo random bytes based on a phrase
+// and uses it to garble and ungarble files
 package main
 
 import (
@@ -89,6 +91,7 @@ func randomBytes(src rand.Source, out chan<- []byte) {
 	}
 }
 
+// xor a file with random data
 func garble(f *os.File, in <-chan []byte, out chan<- bool) {
 	var (
 		data []byte // data we read
@@ -131,10 +134,10 @@ func garble(f *os.File, in <-chan []byte, out chan<- bool) {
 		}
 
 		out <- true
-		// close(out)
 	}
 }
 
+// parse command line arguments
 func init() {
 	flag.StringVar(&phrase, "phrase", "", "the Garble phrase, by default random")
 	flag.Parse()
@@ -153,6 +156,7 @@ func init() {
 	fmt.Println("Using phrase:", phrase)
 }
 
+// the main program...
 func main() {
 	// Use available CPUs:
 	if runtime.GOMAXPROCS(0) == 1 &&
