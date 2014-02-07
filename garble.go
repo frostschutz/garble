@@ -26,6 +26,7 @@ var (
 	narg   = int(0)
 	phrase = ""
 	pool   = make(chan []byte, POOL)
+	loop   = make(chan []byte, POOL)
 	data   = make([]chan []byte, SOURCES)
 )
 
@@ -90,6 +91,8 @@ func randomBytes(src rand.Source, out chan<- []byte) {
 func garble(f *os.File, in chan []byte, out chan bool) {
 	for buf, ok := <-in; ok; buf, ok = <-in {
 		out <- len(buf) == BSIZE
+		close(out)
+		break
 	}
 }
 
@@ -166,20 +169,39 @@ func main() {
 	}
 
 	// Route data channels:
-	var buf []byte
-	for {
-		for _, r := range data {
-			buf = <-r
+	go func(data []chan []byte, writers []chan []byte) {
+		var buf []byte
+		for {
+			for _, r := range data {
+				buf = <-r
 
-			for _, w := range writers {
-				w <- buf
+				for _, w := range writers {
+					w <- buf
+				}
+
+				loop <- buf
 			}
-
-			for _, s := range signals {
-				<-s
-			}
-
-			pool <- buf
 		}
+	}(data, writers)
+
+	var buf []byte
+
+	for narg > 0 {
+		buf = <-loop
+
+		for i, s := range signals {
+			if signals[i] != nil {
+				_, ok := <-s
+
+				if !ok {
+					signals[i] = nil
+					narg--
+				}
+			}
+		}
+
+		pool <- buf
 	}
+
+	fmt.Println("All done!")
 }
