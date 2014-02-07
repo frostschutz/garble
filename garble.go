@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"runtime/pprof"
 	"time"
 )
 
@@ -138,6 +139,8 @@ func garble(f *os.File, in <-chan []byte, out chan<- bool) {
 }
 
 // parse command line arguments
+var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+
 func init() {
 	flag.StringVar(&phrase, "phrase", "", "the Garble phrase, by default random")
 	flag.Parse()
@@ -158,6 +161,15 @@ func init() {
 
 // the main program...
 func main() {
+	if *cpuprofile != "" {
+		f, err := os.Create(*cpuprofile)
+		if err != nil {
+			panic(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	// Use available CPUs:
 	if runtime.GOMAXPROCS(0) == 1 &&
 		runtime.NumCPU() > 1 &&
