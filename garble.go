@@ -126,11 +126,14 @@ func garble(f *os.File, in <-chan []byte, out chan<- bool) {
 		for i := 0; i < n; i++ {
 			data[i] ^= buf[i]
 		}
+		out <- true // done with buf
 
 		// write
-		f.WriteAt(data[0:n], pos)
+		_, err = f.WriteAt(data[0:n], pos)
+		if err != nil {
+			panic(err)
+		}
 		pos += int64(n)
-		out <- true
 	}
 }
 
