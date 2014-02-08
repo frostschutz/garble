@@ -94,46 +94,42 @@ func randomBytes(src rand.Source, out chan<- []byte) {
 
 // xor a file with random data
 func garble(f *os.File, in <-chan []byte, out chan<- bool) {
-	var (
-		data []byte // data we read
-		err  error  // I/O error
-		h    int    // data index
-		n    int    // data size
-		pos  int64  // file pos
-	)
-
-	data = make([]byte, BSIZE)
-	err = nil
-	h = 0
-	n = 0
-	pos = 0
-
-	for buf, ok := <-in; ok; buf, ok = <-in {
-		for _, randombyte := range buf {
-			if h == n {
-				if h > 0 {
-					f.WriteAt(data[0:h], pos)
-					pos += int64(h)
-				}
-
-				h = 0
-				n, err = f.Read(data)
-
-				if err != nil && err != io.EOF {
-					panic(err)
-				}
-				if n == 0 {
-					close(out)
-					for {
-						<-in // sleep of no return
-					}
-				}
+	var n, m int
+	var err error
+	data := make([]byte, BSIZE)
+	var buf []byte
+	pos := int64(0)
+	for {
+		// read
+		n, err = f.Read(data)
+		for n != BSIZE || err != nil {
+			if err != nil && err != io.EOF {
+				panic(err)
 			}
-
-			data[h] ^= randombyte
-			h++
+			if n == 0 {
+				close(out)
+				for {
+					<-in // sleep forever
+				}
+				return
+			}
+			m, err = f.Read(data[n:BSIZE])
+			if m == 0 && err == io.EOF {
+				// last partial block
+				break
+			}
+			n += m
 		}
 
+		// xor with random data
+		buf = <-in
+		for i := 0; i < n; i++ {
+			data[i] ^= buf[i]
+		}
+
+		// write
+		f.WriteAt(data[0:n], pos)
+		pos += int64(n)
 		out <- true
 	}
 }
