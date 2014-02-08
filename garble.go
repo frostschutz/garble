@@ -248,7 +248,7 @@ func main() {
 		buf = <-loop
 
 		for i, s := range signals {
-			if signals[i] != nil {
+			if s != nil {
 				_, ok := <-s
 
 				if !ok {
