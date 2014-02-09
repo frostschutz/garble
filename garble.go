@@ -2,6 +2,17 @@
 // and uses it to garble and ungarble files
 package main
 
+// #define BSIZE 65536
+//
+// void xor(char *a, char *b) {
+//     int i = BSIZE;
+//     while(i--) {
+//         a[i] ^= b[i];
+//     }
+// }
+import "C"
+import "unsafe"
+
 import (
 	"bytes"
 	cryptorand "crypto/rand"
@@ -18,7 +29,7 @@ import (
 )
 
 const (
-	BSIZE    = 65536
+	BSIZE    = C.BSIZE
 	BSIZE7   = BSIZE - BSIZEMOD
 	BSIZEMOD = BSIZE % 7
 	MULTI    = 4
@@ -123,9 +134,7 @@ func garble(f *os.File, in <-chan []byte, out chan<- bool) {
 
 		// xor with random data
 		buf = <-in
-		for i := 0; i < n; i++ {
-			data[i] ^= buf[i]
-		}
+		C.xor((*C.char)(unsafe.Pointer(&data[0])), (*C.char)(unsafe.Pointer(&buf[0])))
 		out <- true // done with buf
 
 		// write
