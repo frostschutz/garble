@@ -2,10 +2,11 @@
 // and uses it to garble and ungarble files
 package main
 
+// #include <stdint.h>
 // #define BSIZE 65536
 //
-// void xor(char *a, char *b) {
-//     int i = BSIZE;
+// void xor(int64_t *a, int64_t *b) {
+//     int i = BSIZE / 8;
 //     while(i--) {
 //         a[i] ^= b[i];
 //     }
@@ -134,7 +135,7 @@ func garble(f *os.File, in <-chan []byte, out chan<- bool) {
 
 		// xor with random data
 		buf = <-in
-		C.xor((*C.char)(unsafe.Pointer(&data[0])), (*C.char)(unsafe.Pointer(&buf[0])))
+		C.xor((*C.int64_t)(unsafe.Pointer(&data[0])), (*C.int64_t)(unsafe.Pointer(&buf[0])))
 		out <- true // done with buf
 
 		// write
