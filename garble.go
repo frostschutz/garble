@@ -105,15 +105,15 @@ func randomBytes(src rand.Source, out chan<- []byte) {
 }
 
 // xor a file with random data
-func garble(f *os.File, in <-chan []byte, out chan<- bool) {
+func garble(fin *os.File, fout *os.File, in <-chan []byte, out chan<- bool) {
 	var n, m int
 	var err error
 	data := make([]byte, BSIZE)
 	var buf []byte
-	pos := int64(0)
+
 	for {
 		// read
-		n, err = f.Read(data)
+		n, err = fin.Read(data)
 		for n != BSIZE || err != nil {
 			if err != nil && err != io.EOF {
 				panic(err)
@@ -125,7 +125,7 @@ func garble(f *os.File, in <-chan []byte, out chan<- bool) {
 				}
 				return
 			}
-			m, err = f.Read(data[n:BSIZE])
+			m, err = fin.Read(data[n:BSIZE])
 			if m == 0 && err == io.EOF {
 				// last partial block
 				break
@@ -139,11 +139,10 @@ func garble(f *os.File, in <-chan []byte, out chan<- bool) {
 		out <- true // done with buf
 
 		// write
-		_, err = f.WriteAt(data[0:n], pos)
+		_, err = fout.Write(data[0:n])
 		if err != nil {
 			panic(err)
 		}
-		pos += int64(n)
 	}
 }
 
@@ -187,20 +186,23 @@ func main() {
 	}
 
 	// Open files:
-	files := make([]*os.File, narg)
 	writers := make([]chan []byte, narg)
 	signals := make([]chan bool, narg)
 
 	for i, arg := range flag.Args() {
-		f, err := os.OpenFile(arg, os.O_RDWR, 0666)
-		if err != nil {
-			panic(err)
+		var fd [2]*os.File
+		for i, _ := range fd {
+			f, err := os.OpenFile(arg, os.O_RDWR, 0666)
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+			fd[i] = f
 		}
-		defer f.Close()
-		files[i] = f
+
 		writers[i] = make(chan []byte, MULTI)
 		signals[i] = make(chan bool, MULTI)
-		go garble(files[i], writers[i], signals[i])
+		go garble(fd[0], fd[1], writers[i], signals[i])
 	}
 
 	// Allocate byte buffer pool:
