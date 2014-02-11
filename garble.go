@@ -26,6 +26,7 @@ import (
 	"os"
 	"runtime"
 	"runtime/pprof"
+	"syscall"
 	"time"
 )
 
@@ -40,6 +41,7 @@ const (
 
 var (
 	narg   = int(0)
+	stdout = false
 	phrase = ""
 	pool   = make(chan []byte, POOL)
 	loop   = make(chan []byte, POOL)
@@ -141,6 +143,16 @@ func garble(fin *os.File, fout *os.File, in <-chan []byte, out chan<- bool) {
 		// write
 		_, err = fout.Write(data[0:n])
 		if err != nil {
+			if err2, ok := err.(*os.PathError); ok && err2.Err == syscall.EPIPE {
+				for {
+					close(out)
+					for {
+						<-in // sleep forever
+					}
+					return
+				}
+			}
+
 			panic(err)
 		}
 	}
@@ -192,6 +204,12 @@ func main() {
 	for i, arg := range flag.Args() {
 		var fd [2]*os.File
 		for i, _ := range fd {
+			if !stdout && arg == "-" {
+				fd[0] = os.Stdin
+				fd[1] = os.Stdout
+				stdout = true
+				break
+			}
 			f, err := os.OpenFile(arg, os.O_RDWR, 0666)
 			if err != nil {
 				panic(err)
