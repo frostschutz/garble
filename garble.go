@@ -121,11 +121,7 @@ func garble(fin *os.File, fout *os.File, in <-chan []byte, out chan<- bool) {
 				panic(err)
 			}
 			if n == 0 {
-				close(out)
-				for {
-					<-in // sleep forever
-				}
-				return
+				goto final
 			}
 			m, err = fin.Read(data[n:BSIZE])
 			if m == 0 && err == io.EOF {
@@ -144,18 +140,19 @@ func garble(fin *os.File, fout *os.File, in <-chan []byte, out chan<- bool) {
 		_, err = fout.Write(data[0:n])
 		if err != nil {
 			if err2, ok := err.(*os.PathError); ok && err2.Err == syscall.EPIPE {
-				for {
-					close(out)
-					for {
-						<-in // sleep forever
-					}
-					return
-				}
+				goto final
 			}
 
 			panic(err)
 		}
 	}
+
+final:
+	close(out)
+	for {
+		<-in // sleep forever
+	}
+	return
 }
 
 // parse command line arguments
