@@ -113,7 +113,7 @@ func garble(fin *os.File, fout *os.File, in <-chan []byte, out chan<- bool) {
 	data := make([]byte, BSIZE)
 	var buf []byte
 
-	for {
+	for ok := true; ok; {
 		// read
 		n, err = fin.Read(data)
 		for n != BSIZE || err != nil {
@@ -126,6 +126,7 @@ func garble(fin *os.File, fout *os.File, in <-chan []byte, out chan<- bool) {
 			m, err = fin.Read(data[n:BSIZE])
 			if m == 0 && err == io.EOF {
 				// last partial block
+				ok = false
 				break
 			}
 			n += m
