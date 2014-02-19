@@ -69,7 +69,7 @@ func randomBytes(src rand.Source, out chan<- []byte) {
 		i = BSIZE
 	)
 
-	for buf, ok := <-pool; ok; buf, ok = <-pool {
+	for buf := range pool {
 		r = src.Int63()
 		switch { // Go seems to eliminate impossible cases
 		case BSIZEMOD == 6:
